@@ -1,0 +1,100 @@
+import pandas as pd
+import calendar
+import datetime as dt
+
+# Global variable used in some of these functions
+DL_DIRECTORY = f"<drive>:\\<directory>\\<username>\\<directory>\\"
+
+def load_file(filepath, sheet="Sheet1", header=0, cols=None, date_cols_to_parse=False, cols_to_convert=None):
+    """Loads a typical Excel file, whether .csv, .xlsx, .xls, or .xlsm"""
+    try:
+        if filepath.endswith(".csv"):
+            df = pd.read_csv(
+                filepath,
+                header=header,
+                parse_dates=date_cols_to_parse,
+                converters=cols_to_convert,
+                usecols=cols,
+            )
+            return df
+        elif filepath.endswith(".xlsx") or filepath.endswith(".xls") or filepath.endswith(".xlsm"):
+            df = pd.read_excel(
+                filepath,
+                sheet_name=sheet,
+                header=header,
+                parse_dates=date_cols_to_parse,
+                converters=cols_to_convert,
+                usecols=cols,
+            )
+            return df
+        else:
+            return None
+    except FileNotFoundError:
+        print("Error: please select a valid file type (.csv, .xlsx, .xls, .xlsm)")
+        return None
+
+
+def map_values(destination_df=None, source_df=None, common_column_as_key=None, values_column_to_map=None):
+    """Use this like a VLookup - the values_column_to_map is where values get pulled in when a match is found"""
+    mapping = source_df.set_index(common_column_as_key)[values_column_to_map]
+    destination_df[values_column_to_map] = destination_df[common_column_as_key].map(mapping)
+    return destination_df
+
+
+def convert_column_spaces_to_underscores(df):
+    """A simple function that takes a dataframe and replaces any column labels containing spaces with underscores instead"""
+    df.columns = [col.replace(" ", "_") for col in df.columns]
+    return df
+
+
+def wide_print(stuff):
+    """A way to print to console without truncating columns"""
+    pd.set_option('display.max_columns', None)
+    pd.options.display.width = None
+    print(stuff)
+
+
+def calc_last_day_of_month(year, month):
+    return calendar.monthrange(year, month)[1]
+
+
+# Global date variables I use frequently
+CURRENT_DATE = dt.date.today().strftime("%Y-%m-%d")
+PREVIOUS_BUSINESS_DAY = (dt.date.today() - pd.tseries.offsets.BusinessDay(1)).strftime("%Y-%m-%d")
+PREVIOUS_MONTH = dt.date.today().month - 1
+PREVIOUS_MONTH_YEAR = dt.date.today().year if dt.date.today().month != 1 else dt.date.today().year - 1
+LAST_DAY_OF_PREVIOUS_MONTH = calc_last_day_of_month(PREVIOUS_MONTH_YEAR, PREVIOUS_MONTH)
+PREVIOUS_MONTH_START = dt.date(year=PREVIOUS_MONTH_YEAR, month=PREVIOUS_MONTH, day=1)
+PREVIOUS_MONTH_END = dt.date(year=PREVIOUS_MONTH_YEAR, month=PREVIOUS_MONTH, day=LAST_DAY_OF_PREVIOUS_MONTH)
+
+
+def return_current_or_previous_business_day(current_or_previous="current", interval=1):
+    """
+    Returns a date object based on input. Defaults to current day with 1 business day interval.
+    \nRequired inputs: 1.) string 'current' or 'previous', 2.) positive integer for day interval of offset
+    """
+    current_date = dt.today().strftime("%Y-%m-%d")
+    previous_business_date = (dt.today() - pd.tseries.offsets.BusinessDay(interval)).strftime("%Y-%m-%d")
+    if current_or_previous.lower() == "current":
+        return current_date
+    elif current_or_previous.lower() == "previous":
+        return previous_business_date
+    else:
+        raise ValueError("Error: please provide 'current' or 'previous' as an input")
+
+
+def show_df_info(df):
+    """Prints column headers, first row data, first row data type, descriptive stats, and more. Does wide_print automatically"""
+    pd.set_options("display.max_columns", None)
+    pd.options.display.width = None
+    print(f"""
+    Dataframe properties:
+    Shape: {df.shape}
+    Duplicate values? {df.duplicated().values.any()}
+    Null values? {df.isna().values.any()} <-- use df.isna().sum() to get a count of null values, if present
+    \nDataframe first 5 rows: {df.head(5)}\n
+    Dataframe last 5 rows: {df.tail(5)}\n
+    Data readout by column:\n""")
+    for col in df.columns:
+        print(f"Column: {col} | Data type: {type(df[col][0])} | First row value: {df[col][0]}")
+        print(f"{df[col].describe()}\n")
