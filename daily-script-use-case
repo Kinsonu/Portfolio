@@ -1,0 +1,60 @@
+# this script is an example of a solution where we needed a way to quickly (without platform-level releases that would take months to prioritize and ship) monitor month-end termination totals for the first couple weeks of the new month
+# this would run each business day, and if a discrepancy was found in the prior month-end totals, it would show which IDs were newly added to the month-end totals so we could investigate further
+
+from Functions import *
+import requests, io
+
+# fresh data pull for updated values. To be run each business day
+terminations = requests.get(
+    url="<URL FOR API OR WEB SERVICE HERE>",
+    auth=(auth-username-here, auth-password-here)
+).content
+terminations_df = pd.read_csv(
+    io.StringIO(terminations.decode("utf-8")),
+    usecols=[
+        "Employee_ID",
+        "Employee_Name",
+        "Effective_Date",
+        "Voluntary_or_Involuntary",
+        "Department",
+        "Country",
+        "Talent_Potential",
+    ]
+)
+terminations_df.Effective_Date = pd.to_datetime(terminations_df.Effective_Date, format="%d/%m/%Y")
+last_month_mask = (
+    (terminations_df.Effective_Date >= PREVIOUS_MONTH_START) &
+    (terminations_df.Effective_Date <= PREVIOUS_MONTH_END)
+)
+last_month_terminations_df = terminations_df[last_month_mask]
+last_month_terminations_IDs_only = last_month_terminations_df.Employee_ID.astype(str)
+last_month_terminations_df.to_csv(
+    path_or_buf=DL_DIRECTORY + f"Last month's terminations as of {CURRENT_DATE}.csv",
+    index=False,
+)
+
+# checks for previous business day's file, and if missing, stops
+try:
+    previous_business_day_file = pd.read_csv(
+    filepath_or_buffer=DL_DIRECTORY + f"Last month's terminations as of {PREVIOUS_BUSINESS_DAY}.csv",
+    )
+except FileNotFoundError:
+    print("Previous business day file not found, so a comparison is not possible. A new check file has been created.")
+    sys.exit()
+
+# converts to sets for better performance, then compares the two sets to find discrepancies
+previous_day_termination_set = set(previous_business_day_file.Employee_ID.astype(str))
+today_termination_set = set(last_month_terminations_IDs_only)
+set_diff = today_termination_set - previous_day_termination_set
+
+# captures Employee IDs of those that are on today's file, but not on the previous business day's file
+retroactive_termination_list = []
+if len(set_diff) > 0:
+    print("Employee IDs with possible retroactive terminations:")
+    for i in set_diff:
+        print(f"Employee ID: {i}")
+        retroactive_termination_list.append(i)
+    print(f"\nInvestigation in System of Record recommended for the Employee IDs listed above. A file with this list has been created.")
+    retroactive_termination_list.to_csv(DL_DIRECTORY + f"Retroactive termination IDs identified on {CURRENT_DATE}.csv")
+    else:
+        print(f"\nNo differences found between today and last business day. A new check file has been created.")
