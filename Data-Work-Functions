@@ -61,16 +61,16 @@ def calc_last_day_of_month(year, month):
 # Global date variables I use frequently
 CURRENT_DATE = dt.date.today().strftime("%Y-%m-%d")
 PREVIOUS_BUSINESS_DAY = (dt.date.today() - pd.tseries.offsets.BusinessDay(1)).strftime("%Y-%m-%d")
-PREVIOUS_MONTH = dt.date.today().month - 1
+PREVIOUS_MONTH = dt.date.today().month - 1 if dt.date.today().month != 1 else 12
 PREVIOUS_MONTH_YEAR = dt.date.today().year if dt.date.today().month != 1 else dt.date.today().year - 1
 LAST_DAY_OF_PREVIOUS_MONTH = calc_last_day_of_month(PREVIOUS_MONTH_YEAR, PREVIOUS_MONTH)
 PREVIOUS_MONTH_START = dt.date(year=PREVIOUS_MONTH_YEAR, month=PREVIOUS_MONTH, day=1)
 PREVIOUS_MONTH_END = dt.date(year=PREVIOUS_MONTH_YEAR, month=PREVIOUS_MONTH, day=LAST_DAY_OF_PREVIOUS_MONTH)
 
 
-def return_current_or_previous_business_day(current_or_previous="current", interval=1):
+def return_current_or_previous_business_day(current_or_previous="previous", interval=1):
     """
-    Returns a date object based on input. Defaults to current day with 1 business day interval.
+    Returns a date object based on input. Defaults to previous business day with 1 day interval.
     \nRequired inputs: 1.) string 'current' or 'previous', 2.) positive integer for day interval of offset
     """
     current_date = dt.today().strftime("%Y-%m-%d")
